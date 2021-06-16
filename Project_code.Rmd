@@ -103,6 +103,7 @@ library(tseries)
 library(zoo)
 library(boot)
 library(corrplot)
+library(knitr)
 
 # change this to the appropriate path on your computer. This is where some data
 # will be saved
@@ -242,7 +243,6 @@ boxplot(ret.mat, main="Vanguard Returns", col="red",
 
 |       Changing focus, below we present univariate descriptive statistics (that is, the mean, variance, standard deviation, skewness, excess kurtosis and quantiles) for the continuously compounded returns of each asset:
 ```{r}
-library(knitr)
 # compute descriptive statistics
 muhat.vals = colMeans(projectReturns.z)
 muhat.mat = as.matrix(muhat.vals)
@@ -348,7 +348,6 @@ sd.stats.mat <- create.estimate.se.interval.matrix(sd.vals, sd.se, sd.95ci,
 
 ```{r}
 # Create table visualizations for stats matrices
-library(knitr)
 # options(digits = 3)
 kable(muhat.stats.mat, format = "simple")
 ```
@@ -388,8 +387,6 @@ kable(fv.annual, format = "simple")
 |       We can investigate the Sharpe slope for these assets based on their monthly CC returns data with the usage of a risk-free rate of .0004167 per month (equivalent to a continuously compounded annual rate of 0.5%). The estimated standard errors for these ratios are also computed and presented in the table below via the Bootstrap method with 999 iterations:
 
 ```{r}
-library(boot)
-
 # Initially compute Sharpe ratio for each asset and store results in a matrix.
 rf <- 0.0004167
 sharpe.ratios <- (muhat.vals - rf) / (sd.vals)
@@ -442,7 +439,6 @@ kable(cov.mat, format = "simple", digits = 5, align = "l")
 |       From the scatterplots, we can ascertain some facts about the relationships amongst these returns-- there appears to be a positive relationship between veurx, veiex and vpacx with vfinx, and these relationships seem to be quite strong, as the respective plots show quite a bit of linearity. To contrast, vfinx does not seem to have much of a relationship at all with vbisx, and it looks to have a weakly negative relationship with vbltx, since it looks like a downward sloping line could best fit the points. Again, due to the upward sloping nature of the points, it seems that veurx has a strong positive relationship with veiex and vpacx while the "spreadshot" nature of the scatterplots between veurx with vbltx and vbisx indicates that there isn't much of a relationship between the two. For those same reasons, it appears that veiex isn't strongly correlated with either vbltx nor vbisx, although it could be very weak positive relationships here. Lastly, there looks to be a pretty strong relationship between vbltx and vbisx as all points in the scatterplot adhere quite closely to an upward sloping line, but neither of these assets seems to have much of a relationship at all with vpacx. All of this information is confirmed by the given results in the covariance matrix. We can now pivot to the correlation matrix of these asset returns to gauge the strength of these linear relationships:
 
 ```{r}
-library(corrplot)
 # Plot correlation matrix
 corrplot(cor.mat)
 kable(cor.mat, format = "simple", align = "l")
@@ -566,7 +562,6 @@ kable(empirical.var.mat, format = "simple")
 |       We first begin, generally, by finding the global minimum variance portfolio which allows for short sales. Recall that the global minimum variance portfolio is the one which attains the smallest possible variance amongst any combination of these 6 assets. We note that, in actuality, this portfolio is not possible since one cannot short sell any mutual fund, so we are proceeding in a theoretical analysis.
 
 ```{r}
-library(IntroCompFinR)
 gmin.port <- globalMin.portfolio(muhat.vals, cov.mat)
 gmin.port.er <- gmin.port$er
 gmin.port.sd <- gmin.port$sd
