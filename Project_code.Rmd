@@ -1,0 +1,953 @@
+---
+title: "Econ 424 Course Project"
+author: "Joey Roach"
+date: "June 4th, 2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+```{r, echo=F}
+knitr::opts_chunk$set(out.width = "50%", out.height = "50%",
+                      echo = F)
+set.seed(06042021)
+```
+                      
+# Table of contents 
+
+0. Executive Summary
+1. Return Calculations and Sample Statistics
+2. Value-at-Risk Calculations
+3. Portfolio Theory
+4. Asset Allocation
+
+\newpage
+
+# Section 0: Executive Summary
+
+##### 0.1: Project Overview\
+|       This project analyzes 5 years of monthly closing price financial data from the end of October 2014 to the end of October 2019 for 6 mutual funds.
+
+##### 0.2: Data Descriptions
+1. **S&P 500 index: vfinx**\
+  This mutual fund measures the performance of the S&P 500, an index which keeps track of a bulk of the top 500 biggest companies in America, serving as a proxy indicator of how the U.S. stock market is performing.
+
+2. **European stock index: veurx**\
+  This fund keeps track of the performance of a benchmark index that measures the investment return on stocks which are issued by companies that are located in the major markets of Europe.
+
+3. **Emerging markets fund: veiex**\
+  This fund tracks the performance of an index that measures the investment return on stocks issued by companies that are located in emerging market countries, such as Brazil, India, China, and Russia, amongst others.
+
+4. **Long-term bond fund: vbltx**\
+  This investment tracks the performance of the Bloomberg Barclays U.S. Long Government/Credit Float Adjusted index, which includes all medium and large issues of U.S. government, investment-grade corporate, and investment-grade international dollar-denominated bonds that have maturities of greater than 10 years and are publicly issued.
+
+5. **Short-term bond fund: vbisx**\
+  The vbisx is a mutual fund which tracks the performance of the Bloomberg Barclays U.S. 1-5 Year Government/Credit Float Adjusted index. This index, like the Bloomberg Barclays U.S. Long Government/Credit Float Adjusted index, includes all medium and large issues of U.S. government, investment-grade corporate, and investment-grade international dollar-denominated bonds which are publicly issued, except these bonds have maturities between 1 to 5 years.
+
+6. **Pacific stock index: vpacx**:\
+  Lastly, the vpacx keeps track of the performance of an index which measures the investment return on stocks issued by companies located in the major markets of the Pacific region.
+
+##### 0.3: Main Findings\
+
+* All 6 asset prices have increased overall during this time period, although all besides vbisx experienced drops in their prices during 2018. Similarly, as the other bonds fund, the drop in price of vbltx was less drastic than the 4 other assets which had declines in their price.
+  + Each of veurx, veiex and vpacx had their prices peak in 2017. Vfinx, vbltx, and vbisx all, for the most part, have prices which continued to increase through 2019, but vbltx did have a slight drop at the end of that year.
+  
+* Vpacx is the only asset which looks like its continuously compounded returns could be approximated relatively well by a normal distribution. It seems that vbltx's returns could also potentially be approximated by a normal distribution, but the outliers present in that distribution give some pause for uncertainty. The other 4 assets do not look to be normally distributed.
+
+* In terms of risk-return tradeoff, vfinx yields the highest return and vbisx has the lowest expected return, yet vbisx also has the lowest volatility while veiex has the highest. Our estimates for the expected return are less precise than our estimates for the volatilities, but the mean estimates are not overtly imprecise.
+
+  + Generally speaking, the country stock indexes of vfinx, veurx and vpacx tend to have more high-earning potential, but they are also much riskier than any of the bond or emerging market funds. The Long-term bond fund (vbltx) has a good combination of risk-return tradeoff, producing the second highest expected return and the second lowest standard deviation.
+
+* Sharpe ratio analysis of all assets demonstrates that, in both the monthly and annualized cases, the short-term bond fund (vbisx) has the largest slope, so it has the largest excess expected return per unit of risk. Veiex, having one of the lowest expected returns and the highest volatility, had the smallest Sharpe slope in these cases.
+
+* The country stock index funds (vfinx, veurx and vpacx) are all quite strongly and positively correlated with one another. These funds are also moderately to strongly positively correlated with the emerging markets fund. Similiarly, both the short and long-term bond funds are quite positively correlated with one another. There are some weakly negative correlations that exist between the bond funds with the country stock index funds and the emerging markets fund.
+
+  + These findings suggest that diversification of these assets within portfolios can yield favorable combinations of low risk with increased expected returns.
+  
+* Calculations show that over a one-month investment horizon for an initial \$100,000 investment, in terms of absolute value, vbisx has the lowest Value-at-Risk (VaR) while, depending on our assumptions and whether we are looking at the maximum amount we could lose with 1% or 5% probability, either veiex or or vpacx tend to have the highest VaR (it is usually veiex).
+  + Over a one-year investment horizon, vbisx again has the lowest VaR on this initial investment while veiex has the highest once more.
+  
+* The creation of portfolios to diversify asset holdings to minimize risk and maximize gains indicates that the global minimum variance portfolio which allows for short sales significantly reduces the risk when compared to investing in only one asset (except for vbltx, which has a similar volatility) and the expected return on this portfolio is quite comparable to that of investment into a singular asset, although this return is lower than that of the maximum expected return on a single asset, which belons to vfinx.
+
+  + In actuality, we cannot short sell mutual funds. The global minimum variance portfolio which restricts short sales does have a slightly higher volatility, but it also has a higher expected return. This portfolio's VaR is higher than its counterpart which allows for short sales, although the difference is not too sizable, and the potential losses match up similarly with investment into vbisx, the least risky single asset.
+
+* The tangency portfolio that does not allow for short sales is not as efficient as the one which does allow for short sales, as the former has a lower expected return, higher standard deviation and smaller Sharpe slope than the latter.
+
+* With respect to investing in the risk-free asset of t-bills, our analysis shows that combining t-bills with portfolios of the Vanguard assets yields a lower volatility with the same expected return, suggesting that these types of investment can even further reduce our risk while retaining the same expected return.
+
+  + In other words, investment strictly into these risky assets tends to induce a higher risk for the same expected payoff.
+
+\newpage
+
+# Section 1: Return Calculations and Sample Statistics
+
+##### 1.1: Analyzing monthly prices and continously compounded (CC) returns\
+
+```{r message=FALSE, results=F}
+# Set up data for the project
+# Data for the project are downloaded automatically from Yahoo! and consist of
+# closing price data on 6 Vanguard mutual funds:
+#
+# 1. S&P 500 index (vfinx)
+# 2. European stock index (veurx)
+# 3. Emerging markets fund (veiex)
+# 4. Long term bond index (vbltx)
+# 5. Short term bond index (vbisx)
+# 6. Pacific stock index (vpacx)
+
+options(digits=3, width=70)
+library(IntroCompFinR)
+library(PerformanceAnalytics)
+library(tseries)
+library(zoo)
+library(boot)
+library(corrplot)
+
+# change this to the appropriate path on your computer. This is where some data
+# will be saved
+savePath="C:\\Users\\Joey\\OneDrive\\Desktop\\UW\\Spring 2021\\Econ 424"
+
+# load data from Yahoo!
+
+# get monthly adjusted closing price data on Vanguard mutual fund data from Yahoo
+# using the tseries function get.hist.quote. Set sample to October 2014 through
+# October 2019.
+
+asset.names = c("vfinx","veurx","veiex","vbltx","vbisx","vpacx")
+start.date = "2014-10-01"
+end.date = "2019-10-30"
+
+vfinx.prices = get.hist.quote(instrument="vfinx", start=start.date,
+                             end=end.date, quote="AdjClose",
+                             provider="yahoo", origin="1970-01-01",
+                             compression="m", retclass="zoo")    
+veurx.prices = get.hist.quote(instrument="veurx", start=start.date,
+                             end=end.date, quote="AdjClose",
+                             provider="yahoo", origin="1970-01-01",
+                             compression="m", retclass="zoo")
+veiex.prices = get.hist.quote(instrument="veiex", start=start.date,
+                             end=end.date, quote="AdjClose",
+                             provider="yahoo", origin="1970-01-01",
+                             compression="m", retclass="zoo")
+vbltx.prices = get.hist.quote(instrument="vbltx", start=start.date,
+                             end=end.date, quote="AdjClose",
+                             # provider="yahoo", 
+                             # origin="1970-01-01",
+                             # compression="m", 
+                             retclass="zoo")
+vbltx.prices = to.monthly(vbltx.prices)$vbltx.prices.Close
+vbisx.prices = get.hist.quote(instrument="vbisx", start=start.date,
+                             end=end.date, quote="AdjClose",
+                             provider="yahoo", origin="1970-01-01",
+                             compression="m", retclass="zoo")
+vpacx.prices = get.hist.quote(instrument="vpacx", start=start.date,
+                             end=end.date, quote="AdjClose",
+                             provider="yahoo", origin="1970-01-01",
+                             compression="m", retclass="zoo")
+# change time indices to class yearmon, which is most appropriate for monthly data
+index(vfinx.prices) = as.yearmon(index(vfinx.prices))
+index(veurx.prices) = as.yearmon(index(veurx.prices))
+index(veiex.prices) = as.yearmon(index(veiex.prices))
+index(vbltx.prices) = as.yearmon(index(vbltx.prices))
+index(vbisx.prices) = as.yearmon(index(vbisx.prices))
+index(vpacx.prices) = as.yearmon(index(vpacx.prices))
+
+projectPrices.z = merge(vfinx.prices,veurx.prices,veiex.prices,vbltx.prices,
+                        vbisx.prices,vpacx.prices)
+colnames(projectPrices.z) = asset.names
+
+# create data.frame for downloading
+projectPrices.df = coredata(projectPrices.z)
+rownames(projectPrices.df) = as.character(index(projectPrices.z))
+
+# compute cc and simple returns
+
+projectReturns.z = diff(log(projectPrices.z))   
+projectReturnsSimple.z = exp(projectReturns.z) - 1
+# create data.frame for downloading
+projectReturns.df = as.data.frame(coredata(projectReturns.z))
+rownames(projectReturns.df) = as.character(index(projectReturns.z))
+projectReturnsSimple.df = as.data.frame(coredata(projectReturnsSimple.z))
+rownames(projectReturnsSimple.df) = as.character(index(projectReturnsSimple.z))
+```
+
+|       We have below graphs depicting the monthly prices of these assets over this 5 year period (on the left), as well as each asset's CC return over this period (on the right).
+
+```{r}
+# plot data
+
+my.panel <- function(...) {
+  lines(...)
+  abline(h=0)
+}
+
+# Plot asset prices and continuously compounded returns
+plot(projectPrices.z, col="blue", lwd=2,
+     main="Asset prices from Oct. 2014-Oct. 2019",
+     xlab="Time")
+plot(projectReturns.z, panel=my.panel, col="blue", lwd=2,
+     main="Asset C.C. returns from Oct. 2014-Oct. 2019",
+     xlab="Time")
+```
+
+|       We can see that, broadly speaking, the prices of each asset has risen substantially over time. There are some differences, such as the price of vfinx trending upward in a relatively linear fashion and growing from around \$160 in October of 2014 to over \$240 by the end of October 2019, while the price of vbltx has only increased by roughly \$4 over that same time span in a very non-linear fashion, yet all of these prices have seen overall increases over this 5 year period. It is also worth noting that the prices of veiex, veurx and vpacx all peaked in their prices in late 2017, and experienced pretty sharp downturns in their price throughout 2018 before rebounding slightly through 2019. In contrast, vbisx and vbltx only had very marginal price growth up until late 2018, at which point they began to increase rapidly through the end of 2019.
+
+|       With respect to the continuously compounded returns of these assets, we uncover some interesting. Firstly, despite the large and consistent increase in its price over time, the returns on vfinx were mostly positive with occasional dips into some negative returns up until 2018, but the fund has experienced bigger and bigger losses after that point. Building off of that, we can actually see all 6 of these assets experience some form of a negative return at the end of 2018, with the vfinx, verux and vpacx being hit the hardest, yet all 6 also exhibited a sharp turnaround into positive returns once 2019 kicked off. Since then, it seems that vbisx and vbltx have demonstrated the most consistently positive returns, with the other stocks having a fair amount of volatility in their CC returns throughout 2019. Potential explanations for these dramatic downturns in 2018 include the presence of trade wars (such as the imposition of high tariffs) induced by former U.S. President Donald Trump during that time as well as continued interest rate hikes brought about by the U.S. Federal Reserve during that same time span.
+
+```{r, out.width="60%", out.height="60%"}
+# plot growth of $1 over the five years using PerformanceAnalytics function
+# chart.CumReturns
+chart.CumReturns(projectReturnsSimple.z, wealth.index=TRUE,
+                 legend.loc="topleft", 
+                 lwd=2, main="growth of $1") 
+```
+
+|       The above shows the equity curves for a \$1 investment made in October of 2014 in each of these assets. The fund that gives the highest future value is Vfinx, which is not too surprising given that we see the most dramatic growth in terms of stock price for this fund, and that, despite the dip at the end of 2018, this fund looks to be one of the most consistent ones out of all 6 to yield a positive return, indicating that investment in the U.S. economy resulted in the largest return. However, what is surprising is how little growth there truly is, as investment into the vfinx only goes up to a future value of about \$1.6; the other assets have future values which hover around the range of \$1.1 to \$1.3, so, while not trivial, the difference is not as large as one may expect just based on looking at the monthly price and CC returns data.
+
+##### 1.2: Normality of the distributions of CC returns for the funds\
+
+|       Let's now take a look at four-panel diagnostic plots of the assets for the histogram distributions, boxplots, Q-Q plots and SACF plots (for sample autocorrelations) for the CC returns for each asset and determine which, if any, of the asset returns appear to follow a normal distribution, if they have any outliers and if they have any evidence of linear time dependence. These four-panel plots are given below and, from left to right, the top row is that of vfinx and veurx, the second row is that of veiex and vbltx and the last row is that of vbisx and vpacx:
+
+```{r}
+# show a 4 panel plot for vfinx returns - notice the use of drop=FALSE.
+# This preserves the column name. fourPanelPlot() is in IntroCompFinR
+fourPanelPlot(projectReturns.z[, "vfinx", drop=FALSE])
+fourPanelPlot(projectReturns.z[, "veurx", drop=FALSE])
+cat("\n")
+fourPanelPlot(projectReturns.z[, "veiex", drop=FALSE])
+fourPanelPlot(projectReturns.z[, "vbltx", drop=FALSE])
+cat("\n")
+fourPanelPlot(projectReturns.z[, "vbisx", drop=FALSE])
+fourPanelPlot(projectReturns.z[, "vpacx", drop=FALSE])
+```
+
+|       With respect to which assets seem to follow a normal distribution, the plots indicate that vpacx seems to be the most likely asset whose return distribution is normal. We can see this through its histogram which is centered about the mean with nearly symmetric, thin tails on either end. The Q-Q plot does have some points that fall off of the theoretical line on either due to outliers present within the boxplot, yet it seems that this distribution is the most like a normal one amongst the 6 assets. Additionally, it appears that the return distribution for vbltx could be well-approximated by a normal distribution; while this distribution does look to be a bit less symmetric about its mean than that of vpacx, it does not seem too far off from what is expected of a normal distribution. Moreover, the Q-Q plot has very few points that stray from the line, only occurring on the ends where the boxplot shows us we have some outlier data-- while not perfect, it seems that this asset return could also come close to being normally distributed, especially factoring in how the infrequent outliers are impacting the overall distribution.
+
+|       In contrast, the returns on vfinx, veurx, veiex and vbisx do not look normally distributed. For vfinx, the histogram shows that the returns tend to be more densely concentrated to the right of the median, indicating some skewness, and the Q-Q plot shows the points falling farther and farther off the line as we move to either end. For veurx, we can clearly see a lack of symmetry about the mean since the largest peak in the distribution is at 0.05, well above the median-- this is reinforced by the poor fit on the Q-Q plot. With veiex, the histogram plot shows a much stronger concentration of data to the left of the median and an elongated right tail, and the Q-Q plot reflects this since the fit gets worse as we move to the left of the theoretical line. Lastly, vbisx does not seem to have a normal distribution for its CC returns for practically the same reasons as veiex: It doesn't have an elongated right tail, but that tail does seem to be thicker and there is not symmetry about the center of the normal line.
+
+|       With regards to linear time dependence, most of these assets seem to be free of any linear time dependence. In most cases, the autocorrelations are relatively small (i.e., they do not exceed the dashed blue lines) and there does not seem to be a distinct pattern or relationship amongst them. The only asset which looks as if it could potentially have some linear time dependence is that of vbltx, primarily due to the fact that between lag = 4 and lag = 11, all autocorrelations are negative for this asset. So, bearing that in mind, it seems that we cannot rule out there being linear time dependence for the returns of vbltx. We can also consider a boxplot of the distribution of all the assets in one graph.
+
+```{r}
+# Create matrix of return data
+ret.mat = coredata(projectReturns.z)
+# boxplots of returns for all assets
+boxplot(ret.mat, main="Vanguard Returns", col="red",
+        ylab="Asset returns")
+```
+
+|       This reflects much of what we have previously touched on, but also shows that all of these assets tend to have quite similar median returns, while veiex has the most variability and, by far, vbisx has the least. We note that outliers are only present in the sample data for the returns of vfinx, vbltx and vpacx.
+
+##### 1.3: Descriptive Univariate Statistics\
+
+|       Changing focus, below we present univariate descriptive statistics (that is, the mean, variance, standard deviation, skewness, excess kurtosis and quantiles) for the continuously compounded returns of each asset:
+```{r}
+library(knitr)
+# compute descriptive statistics
+muhat.vals = colMeans(projectReturns.z)
+muhat.mat = as.matrix(muhat.vals)
+sd.vals = apply(projectReturns.z, 2, sd)
+var.vals = apply(projectReturns.z, 2, var)
+skew.vals = apply(projectReturns.z, 2, skewness)
+ekurt.vals = apply(projectReturns.z, 2, kurtosis)
+cov.mat = var(projectReturns.z)
+cor.mat = cov2cor(cov.mat)
+covhat.vals = cov.mat[lower.tri(cov.mat)]
+rhohat.vals = cor.mat[lower.tri(cor.mat)]
+names(covhat.vals) <- names(rhohat.vals) <- 
+  c("vfinx,veurx","vfinx,veiex","vfinx,vbltx", "vfinx,vbisx", "vfinx,vpacx",
+    "veurx,veiex", "veurx,vbltx", "veurx,vbisx", "veurx,vpacx",
+    "veiex,vbltx", "veiex,vbisx", "veiex,vpacx",
+    "vbltx,vbisx", "vbltx,vpacx",
+    "vbisx,vpacx")
+# empirical quantiles for VaR calculations
+q.vals = apply(projectReturns.z, 2, quantile, prob=c(0.01,0.05))
+
+# display results in a matrix
+stats.mat = rbind(muhat.vals,
+                  var.vals,
+                  sd.vals,
+                  skew.vals,
+                  ekurt.vals,
+                  q.vals)
+rownames(stats.mat) = c("Mean", "Variance", "Std Dev", "Skewness", 
+                        "Excess Kurtosis", "1% Quantile", 
+                        "5% Quantile")
+# print statistics
+kable(stats.mat, format = "simple")
+```
+
+|       Examining the table, we can see that vfinx has the highest average return (of 0.8%) while vbisx has the smallest average return (of 0.1%). The largest standard deviation is that of veiex at 4.4% while the lowest belongs to vbisx again at only 0.4%. In terms of ascertaining which funds look to be the most and least normally distributed, we rely on the measures of excess kurtosis and skewness; we see that vpacx seems like the most likely asset to follow a normal distribution, as it has a good combination of the second lowest excess kurtosis and the third lowest skewness. Note that, in contrast to what we discussed previously in sub-section 1.2, vbltx does not seem to be very normally distributed as it has some of the largest excess kurtosis-- in the context of our previous discussion, this could be justified by the very few and quite distant outliers present in the data. While it does impact the normality of the distribution, it seems that the excess kurtosis is being dramatically impacted by these outliers. On the opposite end of the spectrum, we can observe that vfinx appears to be one of the assets least likely to be normally distributed, particularly because it has such the second largest amount of excess kurtosis (indicating thinner tails than that of the normal distribution) and also exhibits the highest amount of skew among these assets. Matching up with our prior analysis, the returns of veurex also seem unlikely to be normally distributed due to it having the largest amount of excess kurtosis.
+
+|       We now look at determining the precision of our estimates for the mean and standard deviations of these asset returns by computing standard errors from these sample statistics and constructing 95% confidence intervals for them:
+
+```{r}
+# Compute standard errors for mean and std dev estimates.
+num.obs <- nrow(projectReturns.df)
+muhat.se <- sd.vals / sqrt(num.obs)
+sd.se <- sd.vals / sqrt(2 * num.obs)
+
+# Compute 95% confidence intervals for the above estimate standard errors.
+obtain_confidence_intervals <- function(est, est.se, interval){
+  # Arguments:
+  # est = A vector of the estimates for the parameter.
+  # est.se = the standard errors vector for a particular estimate.
+  # interval = an integer which will be multiplied by the standard errors
+  #            vector representing which confidence interval to compute-- a 2
+  #            yields a 95% confidence interval, a 3 gives a 99% confidence
+  #            interval.
+  # Returns a matrix which contains the lower and upper bound of the interval,
+  # as well as the width of the interval.
+  upper.bound <- est + est.se * interval
+  lower.bound <- est - est.se * interval
+  upper.bound <- round(upper.bound, 3)
+  lower.bound <- round(lower.bound, 3)
+  width <- upper.bound - lower.bound
+  conf.int <- paste("(", lower.bound, ", ", upper.bound, ")", sep="")
+  interval.matrix <- rbind(conf.int, width)
+  if (interval == 2){
+    rows.names <- c("95% Confidence Interval", "Interval width")
+  } else {
+    rows.names <- c("99% Confidence Interval", "Interval width")
+  }
+  rownames(interval.matrix) <- rows.names
+  return(interval.matrix)
+}
+
+# Find 95% confidence intervals for estimates of the mean, std dev, variance and
+# correlations.
+muhat.95ci <- obtain_confidence_intervals(muhat.vals, muhat.se, 2)
+sd.95ci <- obtain_confidence_intervals(sd.vals, sd.se, 2)
+
+# Put estimate, std. error and confidence interval data for each parameter
+# into matrices.
+create.estimate.se.interval.matrix <- function(est, est.se, interval,
+                                               est.type){
+  # Arguments:
+  # est = A vector of all stock estimates for the parameter.
+  # est.se = A vector of standard errors for all stock parameter estimates.
+  # interval = A matrix of the confidence interval data for the estimated
+  # parameters.
+  # est.type = a string to preface 
+  # Returns a matrix of all the estimate, standard error and confidence interval
+  # data for all stocks.
+  est <- round(est, 3)
+  est.se <- round(est, 3)
+  result.mat <- rbind(est, est.se, interval)
+  rownames(result.mat)[1:2] <- c(paste("Estimate for", est.type),
+                                 paste("Std. Error for", est.type))
+  return(result.mat)
+}
+
+muhat.stats.mat <- create.estimate.se.interval.matrix(muhat.vals, muhat.se,
+                                                      muhat.95ci,
+                                                      "muhat")
+sd.stats.mat <- create.estimate.se.interval.matrix(sd.vals, sd.se, sd.95ci,
+                                                   "Std. Dev.")
+```
+
+```{r}
+# Create table visualizations for stats matrices
+library(knitr)
+# options(digits = 3)
+kable(muhat.stats.mat, format = "simple")
+```
+
+
+|       With regards to our estimates of the expected return on each asset, the only one here that looks to be very precise is that of vbisx. Its estimate is the same as its standard error (0.01), but the 95% confidence interval width is an incredibly small 0.002. This also aligns with, and justifies, vbisx, having the lowest estimated sharpe ratio standard error. The other estimates have a bit wider widths, but some estimates (like the one for veurx) even have standard errors that are larger than the estimates, just as with the estimated sharpe ratio standard errors. In these cases, the estimates are a lot less precise as we see interval widths of about 2%. Overall though, for these estimated mean returns to only be off in either direction by about 1%, they are not terribly imprecise estimates-- just not incredibly precise ones.
+
+```{r}
+kable(sd.stats.mat, format = "simple")
+```
+
+
+|       For the estimated standard deviations, we see standard errors with magnitudes that are roughly equivalent to those of the ones for the estimated means, yet there's a key difference here: In relation to the estimates themselves, these standard errors are much, much smaller because the estimated standard deviations are much larger than the estimated means. As a result, we tend to, on average, see smaller 95% confidence interval widths for the standard deviation estimates than the mean estimates; while both estimates are pretty precise ones, the analysis here leads us to conclude that the standard deviation estimates are more precise than the mean estimates.
+
+|       We now use the square root of time rule to convert monthly mean and standard deviation estimates into annual estimates:
+
+```{r}
+# Annualize estimates of mean and s.d. from monthly estimates.
+annual.muhat <- muhat.vals * 12
+annual.sd <- sd.vals * sqrt(12)
+annual.stats <- rbind(annual.muhat, annual.sd)
+rownames(annual.stats) <- c("Annualized mean", "Annualized std. dev.")
+kable(annual.stats, format= "simple")
+```
+
+|       The above represents the annualized mean and standard deviation based on the square root of time rule. As in section 1.2, we find that vfinx has the highest expected annual return (at 10.1%) and vbisx has the lowest (at 1.7%). Similarly, vbisx also has the smallest volatility of 1.5% and veiex has the highest at a whopping 15.4%. Assuming that we can obtain these average annual returns every year for 5 years, and recalling that these returns are CC ones and CC returns are additive, we can compute the future value of a \$1 investment in each asset after 5 years to be:
+
+```{r}
+annual.returns <- 5*annual.muhat
+fv.annual <-1*(1+annual.returns)
+fv.annual <- t(fv.annual)
+fv.annual <- as.data.frame(fv.annual, row.names = "Future Value of $1")
+kable(fv.annual, format = "simple")
+```
+
+##### 1.3: Sharpe Slopes of the Asset Returns\
+|       We can investigate the Sharpe slope for these assets based on their monthly CC returns data with the usage of a risk-free rate of .0004167 per month (equivalent to a continuously compounded annual rate of 0.5%). The estimated standard errors for these ratios are also computed and presented in the table below via the Bootstrap method with 999 iterations:
+
+```{r}
+library(boot)
+
+# Initially compute Sharpe ratio for each asset and store results in a matrix.
+rf <- 0.0004167
+sharpe.ratios <- (muhat.vals - rf) / (sd.vals)
+
+# Create a function to compute standard errors for the bootstrap estimate.
+sharpe.boot <- function(data, idx){
+  # Arguments:
+  # data = Data to be resampled
+  # idx = vector of random indices created by boot()
+  # Returns estimated sharpe ratio of each asset for the sampled data.
+  sampled <- data[idx, ]
+  mean.sample <- apply(sampled, 2, mean)
+  sd.sample <- apply(sampled, 2, sd)
+  sampled.sharpe <- (mean.sample - rf) / (sd.sample)
+  return(sampled.sharpe)
+}
+
+assets.sharpe.boot <- boot(projectReturns.df, statistic = sharpe.boot, R=999)
+assets.sharpe.boot.se <- apply(assets.sharpe.boot$t, 2, sd)
+sharpe.mat <- rbind(sharpe.ratios, assets.sharpe.boot.se)
+rownames(sharpe.mat) <- c("Sharpe Ratio", "Std. Error")
+kable(sharpe.mat, format = "simple")
+```
+
+|       We find that the vbisx asset has the highest sharpe ratio with a value of .245, and vfinx is a relatively close second with a sharpe ratio of .227. However, even when bootstrapping the data to compute the sharpe ratios and deriving the estimated standard errors from this method, we see that the estimates are not very precise, as the standard errors tend to be (at least) nearly half as large as the estimates themselves, and in the cases of veurx, veiex, and vpacx, the standard errors even exceed the estimates in terms of magnitude-- this indicates that these sharpe ratio estimates are not very precise ones.
+
+
+
+```{r}
+# Compute annualized sharpe ratio estimates.
+annual.sharpe.ratios <- (annual.muhat- rf) / (annual.sd)
+sharpe.mat <- sharpe.mat[-2,]
+sharpe.mat <- rbind(sharpe.mat, annual.sharpe.ratios)
+rownames(sharpe.mat) <- c("Monthly Sharpe Ratio", "Annual Sharpe Ratio")
+kable(sharpe.mat, format = "simple")
+```
+
+|     Comparing these Sharpe ratios, we observe that, when ranking assets from highest Sharpe ratio to lowest, that the ranking does not change whether we are looking at the monthly ratios, or the annualized ones. 
+
+##### 1.4: Correlations Amongst Assets\
+
+|       We will now determine the direction and strength of the relationships amongst our assets; first, we examine scatterplots of CC returns between the assets and present with it the sample covariance matrix on the CC returns of the 6 assets:
+
+```{r}
+# Compute pairwise scatterplots, present covariance matrix as well.
+pairs(ret.mat, col="blue")
+kable(cov.mat, format = "simple", digits = 5, align = "l")
+```
+
+|       From the scatterplots, we can ascertain some facts about the relationships amongst these returns-- there appears to be a positive relationship between veurx, veiex and vpacx with vfinx, and these relationships seem to be quite strong, as the respective plots show quite a bit of linearity. To contrast, vfinx does not seem to have much of a relationship at all with vbisx, and it looks to have a weakly negative relationship with vbltx, since it looks like a downward sloping line could best fit the points. Again, due to the upward sloping nature of the points, it seems that veurx has a strong positive relationship with veiex and vpacx while the "spreadshot" nature of the scatterplots between veurx with vbltx and vbisx indicates that there isn't much of a relationship between the two. For those same reasons, it appears that veiex isn't strongly correlated with either vbltx nor vbisx, although it could be very weak positive relationships here. Lastly, there looks to be a pretty strong relationship between vbltx and vbisx as all points in the scatterplot adhere quite closely to an upward sloping line, but neither of these assets seems to have much of a relationship at all with vpacx. All of this information is confirmed by the given results in the covariance matrix. We can now pivot to the correlation matrix of these asset returns to gauge the strength of these linear relationships:
+
+```{r}
+library(corrplot)
+# Plot correlation matrix
+corrplot(cor.mat)
+kable(cor.mat, format = "simple", align = "l")
+```
+
+|       The above plot of asset return correlations confirms many of our prior assertions: The most correlated assets are vpacx with vfinx, veurx and veiex while it also looks like there are strong correlations between veurx and vfinx and, additionally, between vbltx and vbisx. We see some weaker negative correlations between vbisx with vfinx, veurx and vpacx as well as between vbltx and vfinx. The assets which seem to be least correlated are vbltx with any asset besides vbisx, as well as vbisx with veiex. These results indicate that diversification can help reduce the risk of these assets, since we have a pretty equitable balance between assets which are highly correlated with assets which are either weakly correlated or have practically no correlation.
+
+\newpage
+
+# Section 2: Value-at-Risk Calculations
+
+|       The focus of this section is computing the 1% and 5% value-at-risk of a \$100,000 investment made on October 30th, 2019 for each asset under differing assumptions: We will first calculate the VaR by assuming normally distributed returns using the asset means and variances over a one-month investment horizon. We will then instead compute the VaR via the annualized mean and standard deviation estimates (obtained via the square root of time rule as applied to the sample mean and sample standard deviation) over a one-year investment horizon. We will then instead utilize the empirical 1% and 5% quantiles of the return distributions to calculate the VaR over an investment horizon of one month, and then compare these findings to our results from when we assumed normality.
+
+##### 2.1: Value-at-Risk Assuming Normally Distributed Asset Returns\
+
+|       For this section, we are assuming that the asset returns are normally distributed. We will first investigate the 1% and 5% VaR over an investment horizon of one-month. The results below give the VaR calculations for each asset as well as bootstrapped estimated standard errors, and 95% confidence intervals for the VaR (our bootstrap methodology used 999 iterations):
+
+```{r}
+w0 <- 100000
+# Create a function to compute the value at risk for the asset returns.
+val.at.risk <- function(data, prob, w=w0){
+  # Arguments:
+  # data = A data frame containing cc returns for all 6 assets.
+  # prob = a float representing the probability for which to compute the VaR
+  # w = integer representing the monetary value of the initial investment.
+  # Returns a matrix with the given prob% VaR for each of the assets.
+  
+  # Find the quantile for each asset
+  quant <- apply(data, 2, mean) + apply(data, 2, sd)*qnorm(prob)
+  result <- (exp(quant) - 1)*w
+  return(result)
+}
+# Create Value-at-Risk function to pass to the boot() function.
+val.at.risk.boot <- function(data, idx, prob=0.01, w=w0){
+  # Arguments:
+  # data = A data frame containing cc returns for all 6 assets.
+  # prob = a float representing the probability for which to compute the VaR
+  # idx = A vector of random indices produced by boot()
+  # w = An integer representing the monetary value of the initial investment
+  # Returns a boot object for the VaR.
+  sampled <- data[idx, ]
+  sampled.var <- val.at.risk(sampled, prob, w)
+  return(sampled.var)
+}
+
+# Compute 1%, 5% VaR for each asset
+var.01 <- val.at.risk(projectReturns.df, 0.01, w0)
+var.05 <- val.at.risk(projectReturns.df, 0.05, w0)
+
+# Compute bootstrapped 1%, 5% VaR estimates and extract estimated standard errors
+# for each asset.
+var.01.boot <- boot(projectReturns.df, statistic = val.at.risk.boot, R = 999)
+var.05.boot <- boot(projectReturns.df, statistic = val.at.risk.boot,
+                   prob = 0.05, R = 999)
+var.01.boot.se <- apply(var.01.boot$t, 2, sd)
+var.05.boot.se <- apply(var.05.boot$t, 2, sd)
+
+# obtain 95% confidence intervals for both VaR estimates.
+var.01.ci <- obtain_confidence_intervals(var.01, var.01.boot.se, 2)
+var.05.ci <- obtain_confidence_intervals(var.05, var.05.boot.se, 2)
+# Store results in a matrix, display them.
+var.mat <- rbind(round(var.01, 2), round(var.01.boot.se, 2), var.01.ci,
+                 round(var.05, 2), round(var.05.boot.se, 2), var.05.ci)
+rownames(var.mat) <- c("1% VaR", "1% VaR Std. Error", "1% VaR 95% C.I.",
+                       "1% VaR interval width", "5% VaR", "5% VaR Std. Error",
+                       "5% VaR 95% C.I.", "5% VaR interval width")
+kable(var.mat, format = "simple")
+```
+
+|       Via the table, we notice that the lowest 1% Value-at-Risk is that of vbisx with an estimated loss with 1% probability of \$836.91 while the largest estimated loss with 1% probability goes to the fund of veiex at \$9668.03. In terms of 5% Value-at-risk, we can see that vbisx also has the lowest estimated loss with 5% probability at \$550.05 while, once more, veiex has the highest estimated loss at \$6,888.77 with 5% probability. Analyzing the standard errors of these estimates, it seems that our estimates for the VaR are relatively precise. At the 1% level, the largest standard error was roughly \$1,069, which is approximately 1/7 of the estimate itself, indicating that our estimates are quite precise-- This also accounts for the relatively small interval widths, especially when we factor in that the initial investment is \$100,000, and that our estimate, in terms of absolute value magnitude, is close to double the size of this interval width. In terms of the 5% VaR, our estimates aren't necessarily quite as precise as the 1% VaR ones, but they are still, at most, about 1/5 of the size of the estimate, again implying that these estimates are precise ones.
+
+##### 2.2: Annualized Value-at-Risk with the square root of time rule\
+
+|       In this sub-section, we again compute the 1% and 5% VaR for each asset, but we now do so over a one-year investment horizon and via the annualized means and standard deviations previously calculated in Section 1 by using the square root of time rule on our descriptive statistics. These results are given below:
+
+```{r}
+# Find quantiles for 1%, 5% VaR utilizing annualized means and Std. Devs.
+annual.quant.01 <- annual.muhat + annual.sd*qnorm(0.01)
+annual.quant.05 <- annual.muhat + annual.sd*qnorm(0.05)
+# Compute 1%, 5% VaR
+annual.var.01 <- (exp(annual.quant.01) - 1)*w0
+annual.var.05 <- (exp(annual.quant.05) - 1)*w0
+
+# Store results in a matrix and display them.
+annual.var.mat <- rbind(annual.var.01, annual.var.05)
+rownames(annual.var.mat) <- c("Annualized 1% VaR", "Annualized 5% VaR")
+kable(annual.var.mat, format = "simple")
+```
+
+|       In relation to our results from sub-section 2.1, we see that our findings for the losses there do not extrapolate out for the entire year-- that is, the 1% VaR estimates we have here are not simply 12 times the 1% VaR we found over a one-month investment horizon. While certainly not optimal to lose out on sizable chunks of a \$100,000 investment, it is somewhat encouraging to see that the losses themselves are not too monumental even with a very low probability of 1%, with the maximum just being a shade over \$25,000, or a quarter of our initial investment. Our estimates here agree with ours over a one-month horizon in the sense that veiex has the highest chance of losing the most whereas vbisx has the highest chance of losing the least, yet, even in that worst case scenario, the potential loss does not really come close to rivaling what we have invested.
+
+##### Section 2.3: Value-at-Risk with Empirical Quantiles\
+
+|       In this final sub-section of Section 2, we now re-compute the 1% and 5% Value-at-Risk of these assets on an initial \$100,000 investment, except, this time, we utilize the empirical quantiles of the return distributions. The results we derived are:
+
+```{r}
+# Find 1% and 5% empirical quantiles of the return distributions.
+empirical.01 <- apply(projectReturns.df, 2, quantile, probs = 0.01)
+empirical.05 <- apply(projectReturns.df, 2, quantile, probs = 0.05)
+empirical.var.01 <- (exp(empirical.01) - 1)*w0
+empirical.var.05 <- (exp(empirical.05) - 1)*w0
+
+# Store results in a matrix and display them in a table.
+empirical.var.mat <- rbind(empirical.var.01, empirical.var.05,
+                           var.01, var.05)
+rownames(empirical.var.mat) <- c("Empirical 1% VaR", "Empirical 5% VaR",
+                                 "Normal dist. 1% VaR", "Normal dist. 5% VaR")
+kable(empirical.var.mat, format = "simple")
+```
+
+|       In comparison to the computed Value-at-Risk from sub-section 2.1, we see that both results tend to agree, and some are even very close to being identical (see: the 5% VaR in both cases for veurx), yet these differences are certainly **not** trivial! For example, the difference between the 1% VaR for veiex for the normal distribution and for the empirical distribution calculations is just shy of \$2,000, although instances like these are more of the exception than the rule. For the most part, these estimates seem to be relatively close to one another, with the difference typically being less than \$1,000. This suggests that, as a whole, these estimates are reasonably close (i.e., "within the ballpark") to what the actual 1% and 5% VaR would be for each of these estimates.
+
+\newpage
+
+# Section 3: Portfolio Theory
+
+|       This section will focus on applying the Gaussian White Noise (GWN) model parameter estimates, which were derived in Section 1.3 as the descriptive univariate sample statistics from the asset CC returns, in varying potential portfolio contexts for all 6 of these mutual funds.
+
+##### Section 3.1: Global Minimum Variance Portfolios\
+
+|       We first begin, generally, by finding the global minimum variance portfolio which allows for short sales. Recall that the global minimum variance portfolio is the one which attains the smallest possible variance amongst any combination of these 6 assets. We note that, in actuality, this portfolio is not possible since one cannot short sell any mutual fund, so we are proceeding in a theoretical analysis.
+
+```{r}
+library(IntroCompFinR)
+gmin.port <- globalMin.portfolio(muhat.vals, cov.mat)
+gmin.port.er <- gmin.port$er
+gmin.port.sd <- gmin.port$sd
+gmin.port.weights <- gmin.port$weights
+gmin.port.mat <- rbind(gmin.port.er, gmin.port.sd)
+rownames(gmin.port.mat) <- c("Exp. Return", "Std. Dev.")
+colnames(gmin.port.mat) <- c("Global Min. Var. Port")
+kable(gmin.port.mat, format = "simple")
+plot(gmin.port, col="blue")
+```
+
+|       The above table gives the expected return and standard deviation of the global minimum variance portfolio while the bar graph depicts the weight of each asset in this portfolio. Note the negative weights of veiex and vbltx, as well as the complete dominance of vbisx as the asset with, by far, the greatest positive weight in the portfolio. Below is a table which explicitly gives the weights, for additional clarification on the exact figures:
+
+```{r}
+kable(gmin.port.weights, format = "simple",
+      col.names = "Global Min. Var. Port. Weights")
+```
+
+|       We will now annualize the above expected return and standard deviation by multiplying the monthly results by 12 and the square root of 12, respectively, and determine the Sharpe Ratio of the Global Minimum Variance Portfolio, again using a risk-free rate of 0.0004167. We will then compare this ratio with the previously determined annualized Sharpe Ratios of the individual assets (Refer to section 1.3 for more specifics on those computations).
+
+```{r}
+# Derive annualized expected return and std. dev. of the global min. var. port.
+gmin.port.annual.er <- gmin.port.er * 12
+gmin.port.annual.sd <- gmin.port.sd * sqrt(12)
+
+# Compute the Sharpe Ratio for the global min. var. port.
+SR.gmin.annual <- (gmin.port.annual.er - rf) / (gmin.port.annual.sd)
+
+# Create table to compare this ratio with the asset ratios, display results.
+sharpe.comp.mat <- cbind(t(annual.sharpe.ratios), SR.gmin.annual)
+colnames(sharpe.comp.mat)[7] <- "Global Min. Var. Port"
+rownames(sharpe.comp.mat) <- "Annualized Sharpe Ratios"
+kable(t(sharpe.comp.mat), format = "simple")
+```
+
+|       This figure demonstrates that the annualized Sharpe Ratio for the global minimum variance portfolio is greater than any such ratio for all of the 6 assets. This makes sense since the global minimum variance portfolio minimizes the variance across all possible portfolios so, consequently, it minimizes the standard deviation, which is the denominator in the calculation for the Sharpe ratio. Although this portfolio does not have as big of an annualized expected return as any of the 6 assets, it does have a significantly smaller volatility, so it overcomes its small expected return to justify having the largest annualized Sharpe ratio when compared to the individual assets.
+
+|       Let's now consider the Value-at-Risk of a \$100,000 investment over a one-month investment horizon for the global minimum variance portfolio. We will do this for both the 1% VaR and the 5% VaR, and compare this to our findings for the individual assets from section 2.
+
+```{r}
+# Obtain 1%, 5% quantile of the gmin port's expected return
+quant.01 <- gmin.port.er + gmin.port.sd*qnorm(0.01)
+quant.05 <- gmin.port.er + gmin.port.sd*qnorm(0.05)
+
+# Compute 1%, 5% VaR, recalling that expected return was a CC one.
+gmin.var.01 <- (exp(quant.01) - 1)*w0
+gmin.var.05 <- (exp(quant.05) - 1)*w0
+
+# Compare results against individual asset VaR values.
+gmin.var.mat <- rbind(gmin.var.01, gmin.var.05)
+rownames(gmin.var.mat) <- c("1% VaR", "5% VaR")
+colnames(gmin.var.mat) <- "Global Min. Var. Port"
+kable(empirical.var.mat, format = "simple")
+kable(gmin.var.mat, format = "simple")
+```
+
+|       In comparison to the individual asset VaR results, we see that the VaR at both the 1% and 5% of the global minimum variance portfolio is lower than any of the individual assets'. This applies regardless of whether we examine the VaR when we assumed normality of the return distributions or the VaR computed from the empirical quantiles. The VaR of the global minimum variance portfolio most closely resembles that of vbisx, which is unsurprising as this bond fund has the highest amount of weight in this portfolio, which was demonstrated previously in this section.
+
+|       What if instead we required that we cannot have any short sales in our global minimum variance portfolio, which is applicable in our context since we cannot short mutual funds? The following results present the weights in this portfolio, its expected return and standard deviation as well as the annual Sharpe ratio given by annualizing the expected return and standard deviation by the square root of time rule (and utilizing the same risk-free rate from the previous portions of this report):
+
+```{r}
+# Create portfolio, find expected return and standard deviation.
+gmin.port.ns <- globalMin.portfolio(muhat.vals, cov.mat, shorts = FALSE)
+gmin.port.ns.er <- gmin.port.ns$er
+gmin.port.ns.sd <- gmin.port.ns$sd
+gmin.port.ns.mat <- rbind(gmin.port.ns.er, gmin.port.ns.sd)
+rownames(gmin.port.ns.mat) <- c("Exp Return", "Std. Dev.")
+colnames(gmin.port.ns.mat) <- "Global Min. Var. Port (No Short Sales)"
+all.gmin.ports.mat <- cbind(gmin.port.mat, gmin.port.ns.mat)
+# Annualize mean and s.d., determine annualized sharpe ratio.
+gmin.port.ns.annual.er <- 12*gmin.port.ns.er
+gmin.port.ns.annual.sd <- sqrt(12)*gmin.port.ns.sd
+gmin.port.ns.annual.sr <- (gmin.port.ns.annual.er - rf) / (gmin.port.ns.annual.sd)
+annual.srs.gmin <- cbind(SR.gmin.annual, gmin.port.ns.annual.sr)
+rownames(annual.srs.gmin) <- "Annualized Sharpe Ratio"
+colnames(annual.srs.gmin) <- c("Global Min. Var. Port",
+                               "Global Min. Var. Port (No Short Sales)")
+all.gmin.ports.mat <- rbind(all.gmin.ports.mat, annual.srs.gmin)
+kable(all.gmin.ports.mat, format = "simple")
+# Visualize portfolio weights.
+plot(gmin.port.ns, col="red")
+```
+
+|       The above table and bar plot shows us a couple of different things; firstly, we can see that all funds except for vfinx and vbisx have 0 weights in the global minimum variance portfolio that does not permit short sales, and, even then, the weight of vbisx monumentally exceeds that of vfinx. In relation to the global minimum variance portfolio that does allow for short sales, we see that the portfolio which requires no short sales has a slightly higher expected return, and also a slightly higher volatility-- this explains why the latter portfolio has a lower Sharpe ratio than the former (essentially, the slight increase in the expected return does not outweight the negative effect of also increasing the standard deviation), yet it should still be noted that this portfolio retains a higher sharpe ratio than any individual asset on its own.
+
+|       Let's repeat the Value-at-Risk analysis that we formerly conducted on the portfolio which allowed for short sales (i.e., determining the 1% and 5% VaR of a \$100,000 investment over a one-month investment horizon), but now on the global minimum variance portfolio which prohibits short sales, and compare the results.
+
+```{r}
+# Find 1% and 5% quantiles of the portfolio's expected return.
+quant.01 <- gmin.port.ns.er + gmin.port.ns.sd*qnorm(0.01)
+quant.05 <- gmin.port.ns.er + gmin.port.ns.sd*qnorm(0.05)
+
+# Find 1%, 5% VaR for this portfolio, noting that the exp. ret. is a CC one.
+gmin.ns.var.01 <- (exp(quant.01) - 1)*w0
+gmin.ns.var.05 <- (exp(quant.05) - 1)*w0
+
+# Cross compare with results for gmin port that allowed short sales.
+gmin.ns.var.mat <- rbind(gmin.ns.var.01, gmin.ns.var.05)
+rownames(gmin.ns.var.mat) <- c("1% VaR", "5% VaR")
+colnames(gmin.ns.var.mat) <- "Global Min. Var. Port (No Short Sales)"
+all.gmin.var.mat <- cbind(gmin.var.mat, gmin.ns.var.mat)
+kable(all.gmin.var.mat, format = "simple")
+```
+
+|       This shows us that despite the relatively minor differences between the global minimum variance portfolios that allow or prohibit short sales, these two portfolios actually have the same 1% and 5% Value-at-Risk over a one-month investment horizon for a \$100,000 investment.
+
+##### Section 3.2: Tangency portfolios\
+
+|       This sub-section will detail aspects of the tangency portfolio for these assets, both with and without the allowance of short sales. Recall that the tangency portfolio is one which seeks to maximize the portfolio's Sharpe Ratio amongst any and all portfolios which are combinations of these 6 assets. Initially, we will determine the tangency portfolio which allows for short sales (which, again, is not achievable in practice since one cannot short sell mutual funds) using the same risk-free rate as before (that is, the monthly risk-free rate of 0.0004167), and comment on the features of this portfolio, which are given below:
+
+```{r}
+# Find tangency portfolio
+tan.port <- tangency.portfolio(muhat.vals, cov.mat, rf)
+# Visualize weights of the portfolio
+plot(tan.port, col="blue")
+```
+
+|       These are the weights of the funds in the tangency portfolio. We can see that, not unlike the global minimum variance portfolios, vbisx has the greatest weight in this portfolio. Vfinx also has a positive weight of approximately 15%, and vpacx also has a very small positive weight, appearing to be about 1%. We can also observe that veurx, veiex and vbltx all have negative weights in this tangency portfolio. Let's further investigate the portfolio and determine its expected return, variance and standard deviation, and utilize those findings to compute the Sharpe ratio of the portfolio, which we can then compare with the (monthly) Sharpe ratios of the individual assets.
+
+```{r}
+# Find er, sd and var of the tangency portfolio
+tan.port.er <- tan.port$er
+tan.port.sd <- tan.port$sd
+tan.port.var <- tan.port.sd ^ 2
+tan.port.sr <- (tan.port.er - rf) / (tan.port.sd)
+
+# Store results, compare sharpe ratio with individual assets.
+tan.port.mat <- rbind(tan.port.er, tan.port.sd, tan.port.var)
+rownames(tan.port.mat) <- c("Exp. Return", "Std. Dev.", "Variance")
+colnames(tan.port.mat) <- "Tangency Portfolio"
+kable(tan.port.mat, format = "simple", digits=5)
+sharpe.mat <- as.data.frame(c(sharpe.ratios, tan.port.sr))
+rownames(sharpe.mat)[7] <- "Tangency portfolio"
+colnames(sharpe.mat) <- "Sharpe Ratios"
+kable(sharpe.mat, format = "simple")
+```
+
+|       The first table gives us the expected return, standard deviation and variance of the tangency portfolio while the second table gives the monthly Sharpe ratios of the individual assets and of the portfolio. As expected since, by definition, the tangency portfolio maximizes the Sharpe ratio, the Sharpe ratio of the portfolio exceeds that of each asset, by quite a sizable margin-- it is more than double that of the largest Sharpe ratio amongst these assets, which belongs to vbisx. Lastly, let's check the annualized Sharpe ratio of the portfolio, determined by deriving annualized estimates of the expected return and standard deviation of the portfolio from the square root of time rule:
+
+```{r}
+# Annualize exp. return and standard deviation for the portfolio
+tan.port.annual.er <- 12*tan.port.er
+tan.port.annual.sd <- sqrt(12)*tan.port.sd
+
+# Compute annualized Sharpe ratio
+tan.port.annual.sr <- (tan.port.annual.er - rf) / (tan.port.annual.sd)
+
+tan.port.annual.sr <- as.matrix(tan.port.annual.sr)
+rownames(tan.port.annual.sr) <- "Tangency Portfolio"
+colnames(tan.port.annual.sr) <- "Annualized Sharpe Ratio"
+kable(tan.port.annual.sr, format = "simple")
+```
+
+|       We see that this tangency portfolio has an annualized Sharpe ratio of 2.17-- in reference to our results in sub-section 3.1 for the global minimum variance portfolios, we notice that this ratio is larger than any previously computed ones which, again, is to be expected since this portfolio maximizes the Sharpe ratio by definition.
+
+|       Now, to align with reality, let's repeat this process, but instead deny any short sales within our tangency portfolio. Below is a table which presents all of the statistics of the analysis for both tangency portfolios:
+
+```{r}
+tan.port.ns <- tangency.portfolio(muhat.vals, cov.mat, risk.free = FALSE,
+                                  shorts = FALSE)
+
+# Find expected return, std. dev. and variance of this portfolio
+tan.port.ns.er <- tan.port.ns$er
+tan.port.ns.sd <- tan.port.ns$sd
+tan.port.ns.var <- tan.port.ns.sd ^ 2
+
+# Calculate monthly sharpe ratio from the above
+tan.port.ns.sr <- (tan.port.ns.er - rf) / (tan.port.ns.sd)
+
+# Annualize exp. return and std. dev of the portfolio, utilize results to compute
+# annualized Sharpe ratio.
+tan.port.ns.annual.er <- 12*tan.port.ns.er
+tan.port.ns.annual.sd <- sqrt(12)*tan.port.ns.sd
+
+tan.port.ns.annual.sr <- (tan.port.ns.annual.er - rf) / (tan.port.ns.annual.sd)
+
+# Store results to compare with tan. port that does allow short sales
+tan.port.mat <- rbind(tan.port.er, tan.port.sd, tan.port.var,
+                      tan.port.annual.er, tan.port.annual.sd,
+                      tan.port.sr, tan.port.annual.sr)
+tan.port.ns.mat <- rbind(tan.port.ns.er, tan.port.ns.sd, tan.port.ns.var,
+                         tan.port.ns.annual.er, tan.port.ns.annual.sd,
+                         tan.port.ns.sr, tan.port.ns.annual.sr)
+rownames(tan.port.mat) <- rownames(tan.port.ns.mat) <- 
+  c("Exp. Return", "Std. Dev.", "Variance", "Annual Exp. Return",
+    "Annual Std. Dev.", "Monthly Sharpe Ratio", "Annual Sharpe Ratio")
+tan.ports.mat <- cbind(tan.port.mat, tan.port.ns.mat)
+colnames(tan.ports.mat) <- c("Tangency Portfolio",
+                             "Tangency Portfolio (No Short Sales)")
+kable(tan.ports.mat, format = "simple", digits=5)
+```
+
+|       The above indicates several results. Restricting short sales on the tangency portfolio yields a smaller expected return and a higher volatility, both for the monthly and annual cases. Due to this, both the monthly and the annual Sharpe ratios for this portfolio are lower than that of the tangency portfolio which allows for short sales, and this difference is not a trivial one; however, relating the above table to previous ones from sub-section 3.1, the annual Sharpe ratio here is still larger than the annual Sharpe ratio for the global minimum variance portfolio which does not allow for short sales, which suggests that this tangency portfolio does seem to correspond to the maximum possible Sharpe ratio we could attain in actuality, since short sales of these mutual funds cannot occur.
+
+
+##### Section 3.3: Efficient Portfolios and The Markowitz Bullet\
+
+|       This sub-section's will conclude Section 3, with the purpose of constructing efficient portfolios based on varying requirements for these 6 fund assets, and then mapping out the risk-return tradeoff of these portfolios both in relation to one another and in relation to the individual assets themselves.
+
+|       We will begin by first finding the efficient minimum variance portfolio which has a return equal to the maximum of the (monthly) average returns for the six assets, allowing for short sales. First, let's determine precisely what this return rate is by examining the average returns for these assets:
+
+```{r}
+kable(muhat.vals, format = "simple", col.names = "Monthly return")
+```
+
+|       This shows that vfinx has the highest expected return at a value of 0.008. This will be the target expected return rate of our efficient portfolio. We now compute this portfolio, and display its portfolio weights, expected return and standard deviation:
+
+```{r}
+target.er <- as.numeric(muhat.vals["vfinx"])
+eff.port.vfinx <- efficient.portfolio(muhat.vals, cov.mat,
+                                      target.return = target.er,
+                                      shorts = TRUE)
+plot(eff.port.vfinx, col="blue")
+eff.port.vfinx.mat <- rbind(eff.port.vfinx$er, eff.port.vfinx$sd)
+rownames(eff.port.vfinx.mat) <- c("Exp. Return", "Std. Dev.")
+colnames(eff.port.vfinx.mat) <- "Efficient Portfolio"
+kable(eff.port.vfinx.mat, format = "simple")
+```
+
+|       Recall that every efficient portfolio is a combination of two other efficient portfolios. We can utilize this efficient portfolio, as well as the efficient global minimum variance portfolio that allows for short sales then to construct the efficient portfolio frontier for portfolios that allow for short sales (i.e., the Markowitz bullet). The below depicts this frontier, plotting the risk-return tradeoff of these portfolios with portfolio expected return on the y-axis and portfolio standard deviation on the x-axis. 
+
+```{r}
+# Manually construct efficient portfolio frontier
+# Establish grid of values (alpha) and prepare matrices/vectors to store the
+# expected returns, variances and weights of the efficient portfolios.
+a <- seq(from = -1, to = 1, by = 0.2)
+n.a <- length(a)
+z.mat <- matrix(0, n.a, 6)
+colnames(z.mat) <- names(muhat.vals)
+mu.z <- rep(0, n.a)
+sig2.z <- rep(0, n.a)
+# Compute covariance between global minimum variance portfolio and the efficient
+# portfolio with an expected return rate of that of vfinx's.
+gmin.e.cov <-
+  as.numeric(t(gmin.port.weights)%*%cov.mat%*%eff.port.vfinx$weights)
+
+for (i in 1:n.a){
+  # Determine portfolio weights for ith value of alpha
+  z.mat[i, ] <- a[i]*eff.port.vfinx$weights + (1- a[i])*gmin.port$weights
+  # Compute mean and variance of the portfolio for the ith value of alpha.
+  mu.z[i] <- a[i]*eff.port.vfinx$er + (1-a[i])*gmin.port$er
+  sig2.z[i] <- a[i]^2*(eff.port.vfinx$sd ^ 2) +
+    (1 - a[i])^2*(gmin.port$sd ^ 2) +
+    2*a[i]*(1 - a[i])*(gmin.e.cov)
+}
+
+# Get efficient portfolio standard deviations
+sig.z <- sqrt(sig2.z)
+
+# Plot the efficient portfolio frontier
+plot(sig.z, mu.z, xlab = "Portfolio Standard Deviation",
+     ylab = "Portfolio Expected Return",
+     col="blue", xlim = c(0, 0.045),
+     ylim = c(-0.015, 0.015))
+points(gmin.port$sd, gmin.port$er, col="red")
+points(eff.port.vfinx$sd, eff.port.vfinx$er, col="green")
+points(sd.vals["vfinx"], muhat.vals["vfinx"], col = "gray0")
+points(sd.vals["veiex"], muhat.vals["veiex"], col = "pink")
+points(sd.vals["vbltx"], muhat.vals["vbltx"], col = "orange")
+points(sd.vals["vpacx"], muhat.vals["vpacx"], col = "brown")
+points(sd.vals["veurx"], muhat.vals["veurx"], col = "darkgoldenrod")
+points(sd.vals["vbisx"], muhat.vals["vbisx"], col = "coral")
+legend(x = "bottomright",
+       legend = c("Efficient frontier", "Global min. var.",
+                  "Efficient (return of vfinx's)",
+                  "vfinx", "veiex", "vbltx", "vpacx",
+                  "veurx", "vbisx"),
+       col=c("blue", "red", "green", "gray0", "pink", "orange",
+             "brown", "darkgoldenrod", "coral"), pch =1,
+       cex = .68)
+```
+
+|       This is the Markowitz bullet for the set of efficient portfolios which allow for short sales-- we have also included the individual assets themselves in this graph. Note that the global minimum variance portfolio does indeed achieve the minimum variance amongst all possible efficient portfolios, and we can also see that our efficient portfolio that had a target return rate of the expected return of vfinx does indeed share an identical expected return. We can also see that, in general, selecting any efficient portfolio along the frontier tends to have a lower volatility than most of the assets, and that these portfolios also, generally speaking, tend to have higher expected returns than most of the individual assets by themselves.
+
+|       Let's now further consider portfolios which are combinations of the tangency portfolio (which allows for short sales) with t-bills. We can show these efficient portfolios, as well as the tangency portfolio itself, by adding it to our Markowitz bullet, in the color of dark green:
+
+```{r}
+plot(sig.z, mu.z, xlab = "Portfolio Standard Deviation",
+     ylab = "Portfolio Expected Return",
+     col="blue", xlim = c(0, 0.045),
+     ylim = c(-0.015, 0.015))
+abline(rf, tan.port.sr, col="darkslategrey")
+points(gmin.port$sd, gmin.port$er, col="red")
+points(eff.port.vfinx$sd, eff.port.vfinx$er, col="green")
+points(tan.port$sd, tan.port$er, col="darkslategrey")
+points(sd.vals["vfinx"], muhat.vals["vfinx"], col = "gray0")
+points(sd.vals["veiex"], muhat.vals["veiex"], col = "pink")
+points(sd.vals["vbltx"], muhat.vals["vbltx"], col = "orange")
+points(sd.vals["vpacx"], muhat.vals["vpacx"], col = "brown")
+points(sd.vals["veurx"], muhat.vals["veurx"], col = "darkgoldenrod")
+points(sd.vals["vbisx"], muhat.vals["vbisx"], col = "coral")
+legend(x = "bottomright",
+       legend = c("Efficient frontier", "Global min. var.",
+                  "Efficient (return of vfinx's)",
+                  "vfinx", "veiex", "vbltx", "vpacx",
+                  "veurx", "vbisx", "Tangency"),
+       col=c("blue", "red", "green", "gray0", "pink", "orange",
+             "brown", "darkgoldenrod", "coral", "darkslategrey"), pch =1,
+       cex = .65)
+```
+
+|       We can see that the tangency portfolio lies along the line which represents the set of all efficient portfolios that are combinations of t-bills and the tangency portfolio. Let's now construct the efficient portfolio frontier for portfolios that do not allow for there to be any short sales. We compare this frontier with that of the previous one below:
+
+```{r}
+# Find efficient frontier without allowing short sales
+frontier.ns <- efficient.frontier(muhat.vals, cov.mat, nport = 10,
+                                  alpha.min = gmin.port.ns.er,
+                                  alpha.max = max(muhat.vals),
+                                  shorts = F)
+
+# Plot both frontiers together
+plot(sig.z, mu.z, xlab = "Portfolio Standard Deviation",
+     ylab = "Portfolio Expected Return",
+     col="blue", xlim = c(0, 0.045),
+     ylim = c(-0.015, 0.015))
+lines(frontier.ns$sd, frontier.ns$er, col="red", type="b")
+legend(x="bottomright",
+       legend = c("Frontier (short sales)",
+                  "Frontier (no short sales)"),
+       col=c("blue", "red"), pch=1)
+```
+
+|       To wrap up this section, we will examine an efficient portfolio that has a target volatility of 0.02, or 2% per month. We will mark this portfolio on the above graph with both types of efficient portfolio frontiers, and determine the difference between the expected return of this portfolio depending on whether we invest in a no short sales efficient portfolio, or if we invest in a short sale efficient portfolio.
+
+```{r}
+# First, allowing for short sales.
+# Utilize tangency portfolio to find share invested in it.
+target.sd <- 0.02
+x.tan.s <- target.sd / tan.port.sd
+mu.s <- rf + x.tan.s*(tan.port.er - rf)
+
+# Now, without allowing for short sales
+x.tan.ns <- target.sd / tan.port.ns.sd
+mu.ns <- rf + x.tan.ns*(tan.port.ns.er - rf)
+
+# Store values and present findings.
+exp.returns <- rbind(mu.s, mu.ns)
+rownames(exp.returns) <- c("Allowing short sales", "No short sales")
+colnames(exp.returns) <- "Exp. return of portfolio w/h volatility of 0.02"
+kable(exp.returns, format = "simple")
+```
+
+|       The above shows that, for an efficient portfolio with a target volatility of 0.02, the expected return when allowing short sales is 0.011 and, when not allowing short sales, the expected return is 0.008. The cost then of investing in the portfolio that does not allow for short sales is -0.003, or -.3% (i.e., this is the difference between the two rates). This is quite a small change in the expected return, so the fact that we can't short sell mutual funds does not alter the expected return too significantly, at least for a portfolio with this target volatility.
+
+\newpage
+
+# Section 4: Asset Allocation
+
+|       This section focuses on obtaining efficient portfolios which achieve a targeted expected return. To abide by the rules of the real world, we will not allow short sales for these portfolios. We are asked to first find the efficient portfolio that attains an expected return of 6% per year (or 0.5% per month), and then the portfolio that attains an expected return of 12% per year (or 1% per month). However, note that an expected return of 1% per month is greater than what we know to be the maximum monthly return on any of the assets (roughly 0.8% per month for vfinx). Without the allowance of short sales, there is no such portfolio which attains an expected rate that is higher than this, so we instead can only find an efficient portfolio of this type which has an expected return of 6% per year.For this portfolio, we will examine the weights of each fund in it, as well as its (monthly) standard deviation and the monthly 1% and 5% VaR of an initial \$100,000 investment.
+
+```{r}
+# Find the efficient portfolio with a target return of 6%
+target.er.1<- 0.005
+e.port.1 <- efficient.portfolio(muhat.vals, cov.mat,
+                                target.return = target.er.1,
+                                shorts=F)
+# Derive standard deviations for this portfolio
+e.port.1.sd <- e.port.1$sd
+
+# Determine 1% and 5% quantiles for this portfolio
+e.port.1.er <- e.port.1$er
+
+port.1.quant.01 <- e.port.1.er + e.port.1.sd*qnorm(0.01)
+port.1.quant.05 <- e.port.1.er + e.port.1.sd*qnorm(0.05)
+
+# Find 1%, 5% VaR for each portfolio based on a $100,000 initial investment.
+port.1.var.01 <- (exp(port.1.quant.01) - 1)*w0
+port.1.var.05 <- (exp(port.1.quant.05) - 1)*w0
+
+# Visualize weight distributions for each portfolio
+plot(e.port.1, col="blue")
+title(main = "Portfolio weights")
+
+# Visualize portfolio std. dev and VaR
+sd.mat <- as.matrix(e.port.1.sd)
+colnames(sd.mat) <- "Standard deviation"
+e.var.mat <- cbind(port.1.var.01, port.1.var.05)
+colnames(e.var.mat) <- c("1% VaR", "5% VaR")
+e.ports.mat <- cbind(sd.mat, e.var.mat)
+rownames(e.ports.mat) <- c("Target return of 0.5% per month")
+kable(e.ports.mat, format = "simple")
+```
+
+|       Note that the performance of this portfolio does not seem to be too bad, although there are pros and cons when comparing it alternative investment options; the global minimum variance portfolio analysis shows that the increase in expected return here does not outweigh the increased risk that we incur by achieving that higher expected return. The same ideas apply relative to our tangency portfolios, as this portfolio does a little more than double the expected return, yet it has almost quadruple the volatility present in the tangency portfolio that does not allow for short sales.
